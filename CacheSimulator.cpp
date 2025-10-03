@@ -157,10 +157,8 @@ public:
         n_waiting_io = 0;
     }
     void reorder(int index, int block_memory) {
-        
-        auto entry = *(entry_location[block_memory]); 
-        cache_sets[index].erase(entry_location[block_memory]);
-        cache_sets[index].insert(cache_sets[index].begin(), std::move(entry));
+        auto it = entry_location[block_memory];
+        cache_sets[index].splice(cache_sets[index].begin(), cache_sets[index], it);
         entry_location[block_memory] = cache_sets[index].begin();
 
     }
@@ -219,6 +217,8 @@ public:
     Core(int id, std::string input_file, int* global_cycle, Monitor* monitor, Bus* bus): id(id), global_cycle(global_cycle), monitor(monitor), bus(bus)  {
         cache = new LRU_Cache(this, cache_size, associativity, block_size, global_cycle, monitor, bus); 
         std::string filename = "./" + input_file + "_four/" + input_file + "_" + std::to_string(id) + ".data";
+        //std::string filename = "./cache_accesses_1000_0.data";
+        //std::string filename = "./dram_accesses_1000_0.data";
         //std::cout << filename <<"check" << "\n";
         //exit(0);
         fin = std::ifstream(filename);
@@ -304,15 +304,15 @@ public:
             bool check_all_finish = true; 
             for (int i = 0; i < n_cores; i++) {
                 bool still_running = cores[i]->execute_next_instruction();
-                check_all_finish = (check_all_finish & !still_running);
+                check_all_finish = (check_all_finish && !still_running);
             }
             if (check_all_finish) {
+                monitor->overall_cyc = *global_cycle - 1;
                 break;
             }
             (*global_cycle)++;
             //std::cout <<*global_cycle<<"\n";
         }
-        monitor->overall_cyc = *global_cycle;
         monitor->print_statistics();
     }
 }; 
@@ -348,7 +348,7 @@ std::pair<int, bool> LRU_Cache::get(int address) {
         // std::cout << "printout get" << address << " " << block_memory<<" "<<index<<"\n";
         monitor->hit_miss_cnt[core->get_id()].second++;
         auto words = load_words_from_ram(address);
-        cache_sets[index].insert(cache_sets[index].begin(), Entry(address, words, false));
+        cache_sets[index].insert(cache_sets[index].begin(), Entry(block_memory * block_size, words, false));
         entry_location[block_memory] = cache_sets[index].begin();
     }
     if (!n_waiting_io) {
@@ -377,7 +377,7 @@ void LRU_Cache::put(int address, int word) {
         monitor->hit_miss_cnt[core->get_id()].second++;
         auto words = load_words_from_ram(address); 
         words[offset] = word;
-        cache_sets[index].insert(cache_sets[index].begin(), Entry(address, words, false));
+        cache_sets[index].insert(cache_sets[index].begin(), Entry(block_memory * block_size, words, true));
         entry_location[block_memory] = cache_sets[index].begin();
         // std::cout << "printout" << address <<" "<<word << " " << block_memory<<" "<<index<<"\n";
     }
