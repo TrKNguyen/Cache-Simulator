@@ -220,7 +220,6 @@ public:
         //std::string filename = "./cache_accesses_1000_0.data";
         //std::string filename = "./dram_accesses_1000_0.data";
         //std::cout << filename <<"check" << "\n";
-        //exit(0);
         fin = std::ifstream(filename);
         waiting_io = false; 
         waiting_cal = -1;
