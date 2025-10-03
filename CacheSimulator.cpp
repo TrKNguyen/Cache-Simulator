@@ -396,11 +396,11 @@ void LRU_Cache::notify_finish_io() {
 
 
 int main(int argc, char* argv[]) {
-    protocol = argv[2]; 
-    input_file = argv[3]; 
-    cache_size = std::stoi(std::string(argv[4])); 
-    associativity = std::stoi(std::string(argv[5])); 
-    block_size = std::stoi(std::string(argv[6]));
+    protocol = argv[1]; 
+    input_file = argv[2]; 
+    cache_size = std::stoi(std::string(argv[3])); 
+    associativity = std::stoi(std::string(argv[4])); 
+    block_size = std::stoi(std::string(argv[5]));
     int n_cores = 1; 
     Operating_System operating_system(n_cores); 
     operating_system.run();

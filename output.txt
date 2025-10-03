@@ -1,0 +1,792 @@
+===== RUN: workload=bodytrack cs=2048 assoc=1 blk=16 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 61306586
+
+2. Compute Cycles:
+   Core 0: 17729254
+
+3. Load/Store Instructions:
+   Core 0: 3270132
+
+4. Idle Cycles:
+   Core 0: 40307200
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2950414
+      Misses: 319718
+      Hit Rate: 90.22%
+
+6. Bus Data Traffic: 6449152 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 3270132
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=bodytrack cs=2048 assoc=1 blk=32 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 57667486
+
+2. Compute Cycles:
+   Core 0: 17729254
+
+3. Load/Store Instructions:
+   Core 0: 3270132
+
+4. Idle Cycles:
+   Core 0: 36668100
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2970775
+      Misses: 299357
+      Hit Rate: 90.85%
+
+6. Bus Data Traffic: 11733792 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 3270132
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=bodytrack cs=2048 assoc=2 blk=16 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 52408486
+
+2. Compute Cycles:
+   Core 0: 17729254
+
+3. Load/Store Instructions:
+   Core 0: 3270132
+
+4. Idle Cycles:
+   Core 0: 31409100
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   3011528
+      Misses: 258604
+      Hit Rate: 92.09%
+
+6. Bus Data Traffic: 5025456 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 3270132
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=bodytrack cs=2048 assoc=2 blk=32 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 48333386
+
+2. Compute Cycles:
+   Core 0: 17729254
+
+3. Load/Store Instructions:
+   Core 0: 3270132
+
+4. Idle Cycles:
+   Core 0: 27334000
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   3035575
+      Misses: 234557
+      Hit Rate: 92.83%
+
+6. Bus Data Traffic: 8746880 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 3270132
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=bodytrack cs=4096 assoc=1 blk=16 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 50417186
+
+2. Compute Cycles:
+   Core 0: 17729254
+
+3. Load/Store Instructions:
+   Core 0: 3270132
+
+4. Idle Cycles:
+   Core 0: 29417800
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   3029649
+      Misses: 240483
+      Hit Rate: 92.65%
+
+6. Bus Data Traffic: 4706848 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 3270132
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=bodytrack cs=4096 assoc=1 blk=32 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 46233486
+
+2. Compute Cycles:
+   Core 0: 17729254
+
+3. Load/Store Instructions:
+   Core 0: 3270132
+
+4. Idle Cycles:
+   Core 0: 25234100
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   3055741
+      Misses: 214391
+      Hit Rate: 93.44%
+
+6. Bus Data Traffic: 8074912 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 3270132
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=bodytrack cs=4096 assoc=2 blk=16 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 46890586
+
+2. Compute Cycles:
+   Core 0: 17729254
+
+3. Load/Store Instructions:
+   Core 0: 3270132
+
+4. Idle Cycles:
+   Core 0: 25891200
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   3053717
+      Misses: 216415
+      Hit Rate: 93.38%
+
+6. Bus Data Traffic: 4142592 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 3270132
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=bodytrack cs=4096 assoc=2 blk=32 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 42034386
+
+2. Compute Cycles:
+   Core 0: 17729254
+
+3. Load/Store Instructions:
+   Core 0: 3270132
+
+4. Idle Cycles:
+   Core 0: 21035000
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   3085991
+      Misses: 184141
+      Hit Rate: 94.37%
+
+6. Bus Data Traffic: 6731200 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 3270132
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=blackscholes cs=2048 assoc=1 blk=16 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 75756463
+
+2. Compute Cycles:
+   Core 0: 10430314
+
+3. Load/Store Instructions:
+   Core 0: 2497349
+
+4. Idle Cycles:
+   Core 0: 62828800
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2106466
+      Misses: 390883
+      Hit Rate: 84.35%
+
+6. Bus Data Traffic: 10052608 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2497349
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=blackscholes cs=2048 assoc=1 blk=32 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 60423963
+
+2. Compute Cycles:
+   Core 0: 10430314
+
+3. Load/Store Instructions:
+   Core 0: 2497349
+
+4. Idle Cycles:
+   Core 0: 47496300
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2189169
+      Misses: 308180
+      Hit Rate: 87.66%
+
+6. Bus Data Traffic: 15198816 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2497349
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=blackscholes cs=2048 assoc=2 blk=16 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 26449663
+
+2. Compute Cycles:
+   Core 0: 10430314
+
+3. Load/Store Instructions:
+   Core 0: 2497349
+
+4. Idle Cycles:
+   Core 0: 13522000
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2396365
+      Misses: 100984
+      Hit Rate: 95.96%
+
+6. Bus Data Traffic: 2163520 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2497349
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=blackscholes cs=2048 assoc=2 blk=32 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 26424063
+
+2. Compute Cycles:
+   Core 0: 10430314
+
+3. Load/Store Instructions:
+   Core 0: 2497349
+
+4. Idle Cycles:
+   Core 0: 13496400
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2388618
+      Misses: 108731
+      Hit Rate: 95.65%
+
+6. Bus Data Traffic: 4318848 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2497349
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=blackscholes cs=4096 assoc=1 blk=16 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 23592663
+
+2. Compute Cycles:
+   Core 0: 10430314
+
+3. Load/Store Instructions:
+   Core 0: 2497349
+
+4. Idle Cycles:
+   Core 0: 10665000
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2398424
+      Misses: 98925
+      Hit Rate: 96.04%
+
+6. Bus Data Traffic: 1706400 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2497349
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=blackscholes cs=4096 assoc=1 blk=32 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 22643663
+
+2. Compute Cycles:
+   Core 0: 10430314
+
+3. Load/Store Instructions:
+   Core 0: 2497349
+
+4. Idle Cycles:
+   Core 0: 9716000
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2407196
+      Misses: 90153
+      Hit Rate: 96.39%
+
+6. Bus Data Traffic: 3109120 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2497349
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=blackscholes cs=4096 assoc=2 blk=16 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 17213063
+
+2. Compute Cycles:
+   Core 0: 10430314
+
+3. Load/Store Instructions:
+   Core 0: 2497349
+
+4. Idle Cycles:
+   Core 0: 4285400
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2462526
+      Misses: 34823
+      Hit Rate: 98.61%
+
+6. Bus Data Traffic: 685664 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2497349
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=blackscholes cs=4096 assoc=2 blk=32 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 17209763
+
+2. Compute Cycles:
+   Core 0: 10430314
+
+3. Load/Store Instructions:
+   Core 0: 2497349
+
+4. Idle Cycles:
+   Core 0: 4282100
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2461664
+      Misses: 35685
+      Hit Rate: 98.57%
+
+6. Bus Data Traffic: 1370272 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2497349
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=fluidanimate cs=2048 assoc=1 blk=16 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 68754485
+
+2. Compute Cycles:
+   Core 0: 11337782
+
+3. Load/Store Instructions:
+   Core 0: 2576503
+
+4. Idle Cycles:
+   Core 0: 54840200
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2221209
+      Misses: 355294
+      Hit Rate: 86.21%
+
+6. Bus Data Traffic: 8774432 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2576503
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=fluidanimate cs=2048 assoc=1 blk=32 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 56110785
+
+2. Compute Cycles:
+   Core 0: 11337782
+
+3. Load/Store Instructions:
+   Core 0: 2576503
+
+4. Idle Cycles:
+   Core 0: 42196500
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2287267
+      Misses: 289236
+      Hit Rate: 88.77%
+
+6. Bus Data Traffic: 13502880 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2576503
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=fluidanimate cs=2048 assoc=2 blk=16 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 57212085
+
+2. Compute Cycles:
+   Core 0: 11337782
+
+3. Load/Store Instructions:
+   Core 0: 2576503
+
+4. Idle Cycles:
+   Core 0: 43297800
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2305600
+      Misses: 270903
+      Hit Rate: 89.49%
+
+6. Bus Data Traffic: 6927648 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2576503
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=fluidanimate cs=2048 assoc=2 blk=32 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 44292685
+
+2. Compute Cycles:
+   Core 0: 11337782
+
+3. Load/Store Instructions:
+   Core 0: 2576503
+
+4. Idle Cycles:
+   Core 0: 30378400
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2376365
+      Misses: 200138
+      Hit Rate: 92.23%
+
+6. Bus Data Traffic: 9721088 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2576503
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=fluidanimate cs=4096 assoc=1 blk=16 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 60454385
+
+2. Compute Cycles:
+   Core 0: 11337782
+
+3. Load/Store Instructions:
+   Core 0: 2576503
+
+4. Idle Cycles:
+   Core 0: 46540100
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2289114
+      Misses: 287389
+      Hit Rate: 88.85%
+
+6. Bus Data Traffic: 7446416 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2576503
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=fluidanimate cs=4096 assoc=1 blk=32 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 47845885
+
+2. Compute Cycles:
+   Core 0: 11337782
+
+3. Load/Store Instructions:
+   Core 0: 2576503
+
+4. Idle Cycles:
+   Core 0: 33931600
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2355037
+      Misses: 221466
+      Hit Rate: 91.40%
+
+6. Bus Data Traffic: 10858112 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2576503
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=fluidanimate cs=4096 assoc=2 blk=16 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 51086585
+
+2. Compute Cycles:
+   Core 0: 11337782
+
+3. Load/Store Instructions:
+   Core 0: 2576503
+
+4. Idle Cycles:
+   Core 0: 37172300
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2355151
+      Misses: 221352
+      Hit Rate: 91.41%
+
+6. Bus Data Traffic: 5947568 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2576503
+   Shared:  0 (N/A for single core)
+
+========================================
+
+===== RUN: workload=fluidanimate cs=4096 assoc=2 blk=32 =====
+
+========================================
+        SIMULATION RESULTS
+========================================
+
+1. Overall Execution Cycles: 38119985
+
+2. Compute Cycles:
+   Core 0: 11337782
+
+3. Load/Store Instructions:
+   Core 0: 2576503
+
+4. Idle Cycles:
+   Core 0: 24205700
+
+5. Cache Statistics:
+   Core 0:
+      Hits:   2425713
+      Misses: 150790
+      Hit Rate: 94.15%
+
+6. Bus Data Traffic: 7745824 bytes
+
+7. Invalidations/Updates on Bus: 0
+
+8. Data Access Distribution:
+   Private: 2576503
+   Shared:  0 (N/A for single core)
+
+========================================
+
