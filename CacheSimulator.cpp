@@ -241,7 +241,6 @@ public:
         //     std::cout << "printout waiting io " <<"\n";
         // }
         if (waiting_cal > *global_cycle) {
-            monitor->compute_cyc[id]++;
             return true;
         }
         if (waiting_io) {
@@ -270,6 +269,7 @@ public:
         } else {
             int cal_cycles = address;
             waiting_cal = *global_cycle + cal_cycles;
+            monitor->compute_cyc[id] += cal_cycles;
         }
         return true;
     }
