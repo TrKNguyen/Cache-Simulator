@@ -28,25 +28,28 @@ class Operating_System;
 enum MESI{M, E, S, I}; 
 
 struct Monitor {
-    // Cache calculate 
-    int overall_cyc = 0; 
-    std::vector<int> compute_cyc; 
-    std::vector<int> ls_ins; 
-    std::vector<int> idle_cyc; 
-    std::vector<std::pair<int, int>> hit_miss_cnt; 
-    int bus_data_traffic = 0; 
-    int bus_invalidate_update_cnt = 0; 
-    
-    // FIX: Separate private vs shared
+    // Cache calculate
+    int overall_cyc = 0;
+    std::vector<int> compute_cyc;
+    std::vector<int> num_loads;    // Track loads separately
+    std::vector<int> num_stores;   // Track stores separately
+    std::vector<int> idle_cyc;
+    std::vector<int> execution_cyc; // Per-core execution cycles
+    std::vector<std::pair<int, int>> hit_miss_cnt;
+    int bus_data_traffic = 0;
+    int bus_invalidate_update_cnt = 0;
+
     int private_data_accesses = 0;  // Access to M or E state
     int shared_data_accesses = 0;   // Access to S state
 
     int num_cores;
     Monitor(int num_cores): num_cores(num_cores) {
         compute_cyc = std::vector<int>(num_cores, 0);
-        ls_ins = std::vector<int>(num_cores, 0);
-        idle_cyc = std::vector<int>(num_cores, 0); 
-        hit_miss_cnt = std::vector<std::pair<int, int>>(num_cores, {0, 0}); 
+        num_loads = std::vector<int>(num_cores, 0);
+        num_stores = std::vector<int>(num_cores, 0);
+        idle_cyc = std::vector<int>(num_cores, 0);
+        execution_cyc = std::vector<int>(num_cores, 0);
+        hit_miss_cnt = std::vector<std::pair<int, int>>(num_cores, {0, 0});
     }
     void print_statistics() const {
         std::cout << "\n========================================" << std::endl;
@@ -64,22 +67,30 @@ struct Monitor {
         }
         std::cout << std::endl;
         
-        // 3. Load/store instructions per core
-        std::cout << "3. Load/Store Instructions:" << std::endl;
+        // 3. Per-core execution cycles
+        std::cout << "3. Per-Core Execution Cycles:" << std::endl;
         for (int i = 0; i < num_cores; i++) {
-            std::cout << "   Core " << i << ": " << ls_ins[i] << std::endl;
+            std::cout << "   Core " << i << ": " << execution_cyc[i] << std::endl;
+        }
+        std::cout << std::endl;
+
+        // 4. Load/store instructions per core
+        std::cout << "4. Load/Store Instructions:" << std::endl;
+        for (int i = 0; i < num_cores; i++) {
+            std::cout << "   Core " << i << ": Loads=" << num_loads[i]
+                      << ", Stores=" << num_stores[i] << std::endl;
         }
         std::cout << std::endl;
         
-        // 4. Idle cycles per core
-        std::cout << "4. Idle Cycles:" << std::endl;
+        // 5. Idle cycles per core
+        std::cout << "5. Idle Cycles:" << std::endl;
         for (int i = 0; i < num_cores; i++) {
             std::cout << "   Core " << i << ": " << idle_cyc[i] << std::endl;
         }
         std::cout << std::endl;
-        
-        // 5. Cache hit/miss counts per core
-        std::cout << "5. Cache Statistics:" << std::endl;
+
+        // 6. Cache hit/miss counts per core
+        std::cout << "6. Cache Statistics:" << std::endl;
         for (int i = 0; i < num_cores; i++) {
             int hits = hit_miss_cnt[i].first;
             int misses = hit_miss_cnt[i].second;
@@ -93,18 +104,18 @@ struct Monitor {
                       << hit_rate << "%" << std::endl;
         }
         std::cout << std::endl;
-        
-        // 6. Bus data traffic
-        std::cout << "6. Bus Data Traffic: " << bus_data_traffic << " bytes" << std::endl;
+
+        // 7. Bus data traffic
+        std::cout << "7. Bus Data Traffic: " << bus_data_traffic << " bytes" << std::endl;
         std::cout << std::endl;
-        
-        // 7. Invalidations or updates
-        std::cout << "7. Invalidations/Updates on Bus: " 
+
+        // 8. Invalidations or updates
+        std::cout << "8. Invalidations/Updates on Bus: "
                   << bus_invalidate_update_cnt << std::endl;
         std::cout << std::endl;
-        
-        // 8. Private vs shared data distribution
-        std::cout << "8. Data Access Distribution:" << std::endl;
+
+        // 9. Private vs shared data distribution
+        std::cout << "9. Data Access Distribution:" << std::endl;
         std::cout << "   Private: " << private_data_accesses << std::endl;
         std::cout << "   Shared:  " << shared_data_accesses << std::endl;
         
@@ -114,25 +125,25 @@ struct Monitor {
 enum Cmd {BusRd, BusRdX, FlushWB}; 
 
 struct BusTxn {
-    Cmd cmd; 
+    Cmd cmd;
     int address;
-    int src_core; 
+    int src_core;
     int remaining_cycles;
     bool supplied_by_cache = false;
     int supplier_core = -1;
     int bytes_on_bus = 0;
-    bool caused_invalidation = false;  // Track if this transaction invalidated any cache
-    
+    int num_invalidations = 0;  // Count number of caches invalidated
+
     BusTxn(Cmd cmd, int address, int src_core, int remaining_cycles, bool supplied_by_cache, int supplier_core, int bytes_on_bus) {
-        this->cmd = cmd; 
-        this->address = address; 
-        this->src_core = src_core; 
-        this->remaining_cycles = remaining_cycles; 
-        this->supplied_by_cache = supplied_by_cache; 
-        this->supplier_core = supplier_core; 
-        this->bytes_on_bus = bytes_on_bus; 
-        this->caused_invalidation = false;
-    } 
+        this->cmd = cmd;
+        this->address = address;
+        this->src_core = src_core;
+        this->remaining_cycles = remaining_cycles;
+        this->supplied_by_cache = supplied_by_cache;
+        this->supplier_core = supplier_core;
+        this->bytes_on_bus = bytes_on_bus;
+        this->num_invalidations = 0;
+    }
 }; 
 
 class Bus {
@@ -190,11 +201,17 @@ private:
     Core* core;
     int n_waiting_io;
     std::queue<Request> requests;
+
+    // For cache hits that take 1 cycle
+    int hit_complete_at_cycle;
+    bool pending_hit_completion;
 public: 
     LRU_Cache(Core* core, int cache_size, int associativity, int block_size, int* global_cycle, Monitor* monitor, Bus* bus): core(core), cache_size(cache_size), associativity(associativity), block_size(block_size), global_cycle(global_cycle), monitor(monitor), bus(bus)  {
         number_sets = cache_size / (associativity * block_size);
-        cache_sets = std::vector<std::list<Entry>>(number_sets, std::list<Entry>()); 
+        cache_sets = std::vector<std::list<Entry>>(number_sets, std::list<Entry>());
         n_waiting_io = 0;
+        pending_hit_completion = false;
+        hit_complete_at_cycle = -1;
     }
     void reorder(int index, int block_memory) {
         auto it = entry_location[block_memory];
@@ -231,25 +248,27 @@ public:
     std::pair<int, bool> get(int address);
     void put(int address, int word);
     void notify_finish_io();
-    
+    void tick();  // Process cache hit delays
+
     void update_entry_state(int address, MESI state);
 };
 
 
 
 class Core {
-private: 
-    LRU_Cache* cache; 
-    std::ifstream fin; 
+private:
+    LRU_Cache* cache;
+    std::ifstream fin;
 
-    Monitor* monitor; 
+    Monitor* monitor;
     int* global_cycle;
     Bus* bus;
-    bool waiting_io; 
+    bool waiting_io;
     int waiting_cal;
     int cnt = 0;
     int id;
 public: 
+    int pending_compute_cycles = 0;  // Compute cycles since last load/store
     Core(int id, std::string input_file, int* global_cycle, Monitor* monitor, Bus* bus): id(id), global_cycle(global_cycle), monitor(monitor), bus(bus)  {
         cache = new LRU_Cache(this, cache_size, associativity, block_size, global_cycle, monitor, bus); 
         std::string filename = "./" + input_file + "_four/" + input_file + "_" + std::to_string(id) + ".data";
@@ -276,6 +295,9 @@ public:
     }
     bool execute_next_instruction() {
         if (waiting_cal > *global_cycle) {
+            // if (id == 0 && (*global_cycle) >= 965 && (*global_cycle) <= 973) {
+            //     std::cout << id <<" " << (*global_cycle) <<" " << waiting_cal <<" check waitingcall??\n";
+            // }
             return true;
         }
         if (waiting_io) {
@@ -294,18 +316,27 @@ public:
         }
         
         int address = hex_to_dec(address_string);
-        if (type == 0) { 
+        if (type == 0) {
+            // Load: count pending compute cycles (they were BETWEEN operations)
+            monitor->compute_cyc[id] += pending_compute_cycles;
+            pending_compute_cycles = 0;
+
             waiting_io = true;
-            auto result = cache->get(address); 
-            monitor->ls_ins[id]++;
+            auto result = cache->get(address);
+            monitor->num_loads[id]++;
         } else if (type == 1) {
+            // Store: count pending compute cycles (they were BETWEEN operations)
+            monitor->compute_cyc[id] += pending_compute_cycles;
+            pending_compute_cycles = 0;
+
             waiting_io = true;
             cache->put(address, base);
-            monitor->ls_ins[id]++;
+            monitor->num_stores[id]++;
         } else {
+            // Compute: accumulate but don't count yet (might be after last load/store)
             int cal_cycles = address;
             waiting_cal = *global_cycle + cal_cycles;
-            monitor->compute_cyc[id] += cal_cycles;
+            pending_compute_cycles += cal_cycles;
         }
         return true;
     }
@@ -339,18 +370,37 @@ public:
     }
     void run() {
         while (1) {
+            // Tick caches to complete any pending hits from previous cycle
+            for (int i = 0; i < n_cores; i++) {
+                cores[i]->get_cache()->tick();
+            }
             bus->tick();
-            bool check_all_finish = true; 
+            bool check_all_finish = true;
             for (int i = 0; i < n_cores; i++) {
                 bool still_running = cores[i]->execute_next_instruction();
+                // Record execution cycle when core finishes (at end of current cycle)
+                // if (i == 0 && (*global_cycle) >= 965 && (*global_cycle) <= 973) {
+                //     std::cout << i <<" " << (*global_cycle) <<" " << still_running <<" check??\n";
+                // }
+                if (!still_running && monitor->execution_cyc[i] == 0) {
+                    monitor->execution_cyc[i] = *global_cycle;
+                }
                 check_all_finish = (check_all_finish && !still_running);
             }
             if (check_all_finish) {
-                monitor->overall_cyc = *global_cycle - 1;
                 break;
             }
             (*global_cycle)++;
         }
+        // Overall cycle is the maximum execution cycle
+        int max_exec = 0;
+        for (int i = 0; i < n_cores; i++) {
+            monitor->compute_cyc[i] += (*cores[i]).pending_compute_cycles;
+            if (monitor->execution_cyc[i] > max_exec) {
+                max_exec = monitor->execution_cyc[i];
+            }
+        }
+        monitor->overall_cyc = max_exec;
         monitor->print_statistics();
     }
     std::vector<Core*>& get_cores() {
@@ -386,7 +436,7 @@ std::vector<int> LRU_Cache::load_words_from_ram(int address) {
     return std::vector<int>(block_size / word_size, 0);
 }
 
-// FIX: Return true if invalidation occurred
+
 bool LRU_Cache::snoop(Cmd cmd, int address, std::optional<BusTxn>& active) {
     int block_memory = address / block_size; 
     int tag = block_memory / number_sets; 
@@ -424,22 +474,36 @@ bool LRU_Cache::snoop(Cmd cmd, int address, std::optional<BusTxn>& active) {
 }
 
 std::pair<int, bool> LRU_Cache::get(int address) {
-    int block_memory = address / block_size; 
-    int tag = block_memory / number_sets; 
-    int index = block_memory % number_sets; 
+    int block_memory = address / block_size;
+    int tag = block_memory / number_sets;
+    int index = block_memory % number_sets;
     int offset = (address % block_size) / word_size;
-    
+
     if (entry_location.count(block_memory)) {
         Entry& entry = *entry_location[block_memory];
-        
-        // FIX: Track private vs shared BEFORE state transition
+
         if (entry.state == MESI::M || entry.state == MESI::E) {
+            // Cache hit in M or E state - private data access
             monitor->private_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
+            reorder(index, block_memory);
+            auto p = std::make_pair(cache_sets[index].begin()->words[offset], true);
+            // Cache hit takes 1 cycle - schedule completion
+            pending_hit_completion = true;
+            hit_complete_at_cycle = *global_cycle + 1;
+            return p;
         } else if (entry.state == MESI::S) {
+            // Cache hit in S state - shared data access
             monitor->shared_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
-        } else if (entry.state == MESI::I) { 
+            reorder(index, block_memory);
+            auto p = std::make_pair(cache_sets[index].begin()->words[offset], true);
+            // Cache hit takes 1 cycle - schedule completion
+            pending_hit_completion = true;
+            hit_complete_at_cycle = *global_cycle + 1;
+            return p;
+        } else if (entry.state == MESI::I) {
+            // Entry exists but is invalid - cache miss
             monitor->hit_miss_cnt[core->get_id()].second++;
             n_waiting_io++;
             requests.push(Request(Cmd::BusRd, address, this->core->get_id(), block_size));
@@ -448,49 +512,56 @@ std::pair<int, bool> LRU_Cache::get(int address) {
                 bus->request(request.cmd, request.address, request.id, request.block_size);
                 requests.pop();
             }
-            entry.state = MESI::S;
-            monitor->shared_data_accesses++;  // After reload, it's shared
+            // State will be set by bus (E or S) when transaction completes
+            reorder(index, block_memory);
         }
-        reorder(index, block_memory);
     } else {
-        // Cache miss
+        // Cache miss - entry doesn't exist
         monitor->hit_miss_cnt[core->get_id()].second++;
         auto words = load_words_from_ram(address);
-        cache_sets[index].insert(cache_sets[index].begin(), Entry(block_memory * block_size, words, MESI::S));
+        // Initial state is I, will be updated by bus to E or S
+        cache_sets[index].insert(cache_sets[index].begin(), Entry(block_memory * block_size, words, MESI::I));
         entry_location[block_memory] = cache_sets[index].begin();
-        monitor->shared_data_accesses++;  // New load is shared initially
     }
-    
-    auto p = std::make_pair(cache_sets[index].begin()->words[offset], true);
-    n_waiting_io++; 
-    notify_finish_io();
+
+    // For misses, return dummy value - will wait for bus transaction
+    auto p = std::make_pair(0, true);
     return p;
 }
 
 void LRU_Cache::put(int address, int word) {
-    int block_memory = address / block_size; 
-    int tag = block_memory / number_sets; 
-    int index = block_memory % number_sets; 
+    int block_memory = address / block_size;
+    int tag = block_memory / number_sets;
+    int index = block_memory % number_sets;
     int offset = (address % block_size) / word_size;
-    
+
     if (entry_location.count(block_memory)) {
         Entry& entry = *entry_location[block_memory];
-        
-        // FIX: Track private vs shared BEFORE state transition
-        if (entry.state == MESI::M || entry.state == MESI::E) {
+
+        if (entry.state == MESI::M) {
+            // Cache hit in M state - already have exclusive ownership
             monitor->private_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
+            reorder(index, block_memory);
+            cache_sets[index].begin()->words[offset] = word;
+            // Stay in M state, takes 1 cycle
+            pending_hit_completion = true;
+            hit_complete_at_cycle = *global_cycle + 1;
+            return;
+        } else if (entry.state == MESI::E) {
+            // Cache hit in E state - have exclusive ownership
+            monitor->private_data_accesses++;
+            monitor->hit_miss_cnt[core->get_id()].first++;
+            reorder(index, block_memory);
+            cache_sets[index].begin()->words[offset] = word;
+            cache_sets[index].begin()->state = MESI::M;
+            // Takes 1 cycle
+            pending_hit_completion = true;
+            hit_complete_at_cycle = *global_cycle + 1;
+            return;
         } else if (entry.state == MESI::S) {
+            // Write to S state - need to invalidate others (upgrade miss)
             monitor->shared_data_accesses++;
-            monitor->hit_miss_cnt[core->get_id()].second++;  // Write to S is a miss!
-            n_waiting_io++;
-            requests.push(Request(Cmd::BusRdX, address, this->core->get_id(), block_size));
-            if (requests.size() == 1) {
-                auto& request = requests.front();
-                bus->request(request.cmd, request.address, request.id, request.block_size);
-                requests.pop();
-            }
-        } else if (entry.state == MESI::I) {
             monitor->hit_miss_cnt[core->get_id()].second++;
             n_waiting_io++;
             requests.push(Request(Cmd::BusRdX, address, this->core->get_id(), block_size));
@@ -499,25 +570,49 @@ void LRU_Cache::put(int address, int word) {
                 bus->request(request.cmd, request.address, request.id, request.block_size);
                 requests.pop();
             }
-        }
-        reorder(index, block_memory);
-        cache_sets[index].begin()->words[offset] = word;
-        cache_sets[index].begin()->state = MESI::M;
-        // After write, it becomes private
-        if (entry.state != MESI::M && entry.state != MESI::E) {
-            monitor->private_data_accesses++;
+            reorder(index, block_memory);
+            cache_sets[index].begin()->words[offset] = word;
+            cache_sets[index].begin()->state = MESI::M;
+            // Will wait for BusRdX to complete
+        } else if (entry.state == MESI::I) {
+            // Write to I state - cache miss
+            monitor->hit_miss_cnt[core->get_id()].second++;
+            monitor->private_data_accesses++;  // Write miss goes to M (private)
+            n_waiting_io++;
+            requests.push(Request(Cmd::BusRdX, address, this->core->get_id(), block_size));
+            if (requests.size() == 1) {
+                auto& request = requests.front();
+                bus->request(request.cmd, request.address, request.id, request.block_size);
+                requests.pop();
+            }
+            reorder(index, block_memory);
+            cache_sets[index].begin()->words[offset] = word;
+            cache_sets[index].begin()->state = MESI::M;
+            // Will wait for BusRdX to complete
         }
     } else {
-        // Cache miss
+        // Cache miss - entry doesn't exist
+        // Check if eviction needed
+        if (cache_sets[index].size() >= (size_t)associativity) {
+            evict(index);
+        }
+        // For write miss, use BusRdX not BusRd
         monitor->hit_miss_cnt[core->get_id()].second++;
-        auto words = load_words_from_ram(address); 
+        monitor->private_data_accesses++;  // Write miss goes to M (private)
+        n_waiting_io++;
+        requests.push(Request(Cmd::BusRdX, address, this->core->get_id(), block_size));
+        if (requests.size() == 1) {
+            auto& request = requests.front();
+            bus->request(request.cmd, request.address, request.id, request.block_size);
+            requests.pop();
+        }
+        // Create entry with initial words and M state
+        auto words = std::vector<int>(block_size / word_size, 0);
         words[offset] = word;
         cache_sets[index].insert(cache_sets[index].begin(), Entry(block_memory * block_size, words, MESI::M));
         entry_location[block_memory] = cache_sets[index].begin();
-        monitor->private_data_accesses++;  // New write starts as private (M state)
+        // Will wait for BusRdX to complete
     }
-    n_waiting_io++; 
-    notify_finish_io();
 }
 
 void LRU_Cache::notify_finish_io() {
@@ -527,18 +622,38 @@ void LRU_Cache::notify_finish_io() {
         auto& request = requests.front();
         bus->request(request.cmd, request.address, request.id, request.block_size);
         requests.pop();
-    } 
+    }
     if (n_waiting_io <= 0) {
         core->finish_io();
     }
 }
 
+void LRU_Cache::tick() {
+    // Check if cache hit delay has elapsed
+    if (pending_hit_completion && *global_cycle >= hit_complete_at_cycle) {
+        pending_hit_completion = false;
+        core->finish_io();
+    }
+}
+
 void LRU_Cache::update_entry_state(int address, MESI state) {
-    int block_memory = address / block_size; 
+    int block_memory = address / block_size;
     if (entry_location.find(block_memory) == entry_location.end()) {
         return;  // Entry doesn't exist, can't update
     }
     Entry& entry = *entry_location[block_memory];
+
+    // Track private vs shared for misses that complete here
+    // (hits were already tracked in get()/put())
+    if (entry.state == MESI::I) {
+        // Was invalid (miss), now being set to E or S
+        if (state == MESI::E) {
+            monitor->private_data_accesses++;
+        } else if (state == MESI::S) {
+            monitor->shared_data_accesses++;
+        }
+    }
+
     entry.state = state;
 }
 
@@ -548,12 +663,12 @@ void Bus::tick() {
     if (active == std::nullopt || (*active).remaining_cycles == 1) {
         if (active != std::nullopt) {
             (*monitor).bus_data_traffic += (*active).bytes_on_bus;
-            
-            // FIX: Count invalidations PER TRANSACTION, not per cache
-            if ((*active).cmd == Cmd::BusRdX && (*active).caused_invalidation) {
+
+            // Count BusRdX as invalidations (write-invalidate protocol)
+            if ((*active).cmd == Cmd::BusRdX) {
                 (*monitor).bus_invalidate_update_cnt++;
             }
-            
+
             auto& cores = this->operating_system->get_cores();
             for (auto& core: cores) {
                 if (core->get_id() == (*active).src_core) {
@@ -564,28 +679,38 @@ void Bus::tick() {
         }
         active = std::nullopt;
         if (pending.size()) {
-            active = std::move(pending.front()); 
+            active = std::move(pending.front());
             pending.pop();
-            auto& cores = this->operating_system->get_cores(); 
-            
-            // Snoop and track if ANY cache was invalidated
-            bool any_invalidation = false;
+            auto& cores = this->operating_system->get_cores();
+
+            // Count the number of caches invalidated
+            int num_invalidations = 0;
             for (auto& core: cores) {
                 if (core->get_id() == (*active).src_core) {
                     continue;
                 }
                 bool invalidated = core->get_cache()->snoop((*active).cmd, (*active).address, active);
-                any_invalidation = any_invalidation || invalidated;
+                if (invalidated) {
+                    num_invalidations++;
+                }
             }
-            (*active).caused_invalidation = any_invalidation;
+            (*active).num_invalidations = num_invalidations;
             
             auto cmd = (*active).cmd;
             if (cmd == Cmd::BusRd) {
+                // All bus transactions count as 2x block size (request + data)
+                (*active).bytes_on_bus = 2 * block_size;
                 if ((*active).supplied_by_cache) {
-                    (*active).bytes_on_bus = block_size; 
+                    // Supplied by another cache - goes to S state
                     (*active).remaining_cycles = 2 * block_size / word_size;
+                    for (auto& core: cores) {
+                        if (core->get_id() == (*active).src_core) {
+                            core->get_cache()->update_entry_state((*active).address, MESI::S);
+                            break;
+                        }
+                    }
                 } else {
-                    (*active).bytes_on_bus = block_size; 
+                    // Not supplied by cache - goes to E state
                     (*active).remaining_cycles = 100;
                     for (auto& core: cores) {
                         if (core->get_id() == (*active).src_core) {
@@ -593,18 +718,18 @@ void Bus::tick() {
                             break;
                         }
                     }
-                } 
+                }
             } else if (cmd == Cmd::BusRdX) {
+                // All BusRdX count as invalidations and 2x block size traffic
+                (*active).bytes_on_bus = 2 * block_size;
                 if ((*active).supplied_by_cache) {
-                    (*active).bytes_on_bus = block_size; 
                     (*active).remaining_cycles = 2 * block_size / word_size;
                 } else {
-                    (*active).bytes_on_bus = block_size; 
                     (*active).remaining_cycles = 100;
-                } 
+                }
             } else if (cmd == Cmd::FlushWB) {
                 (*active).remaining_cycles = 100;
-                (*active).bytes_on_bus = block_size;
+                (*active).bytes_on_bus = 2 * block_size;  // Writeback also 2x
             }
         }
     } else {
