@@ -129,7 +129,8 @@ struct BusTxn {
     int address;
     int src_core;
     int remaining_cycles;
-    bool supplied_by_cache = false;
+    int supplied_by_cache = 0; // very important 0: none, 1: supplied by E (clean), 2: supplied by M (dirty)
+
     int supplier_core = -1;
     int bytes_on_bus = 0;
     int num_invalidations = 0;  // Count number of caches invalidated
@@ -450,18 +451,24 @@ bool LRU_Cache::snoop(Cmd cmd, int address, std::optional<BusTxn>& active) {
     if (cmd == Cmd::BusRd) {
         if (entry.state == MESI::M) {
             (*active).supplier_core = core->get_id();
-            (*active).supplied_by_cache = true;
+            (*active).supplied_by_cache = 2;
             entry.state = MESI::S;
+
+            // store_words_to_ram(address); very important additional request in here, need to really flush the thing to ram, instead of explicitly flush, we should merge into 1 transaction, we mark it as supplief_by_cache = 2
+            
         } else if (entry.state == MESI::E) {
             (*active).supplier_core = core->get_id();
-            (*active).supplied_by_cache = true;
+            (*active).supplied_by_cache = 1;
+
             entry.state = MESI::S;
         } 
     } else if (cmd == Cmd::BusRdX) {
         if (entry.state != MESI::I) {  // If it was valid before
             if (entry.state == MESI::M) {
                 (*active).supplier_core = core->get_id();
-                (*active).supplied_by_cache = true;
+                (*active).supplied_by_cache = 1;
+
+                // dont need to store_words_to_ram in here because when we do data sharing, the next one become M, it will handle the data store later!
             }
             entry.state = MESI::I;
             invalidated = true;  // Mark that we invalidated
@@ -572,12 +579,14 @@ void LRU_Cache::put(int address, int word) {
             }
             reorder(index, block_memory);
             cache_sets[index].begin()->words[offset] = word;
-            cache_sets[index].begin()->state = MESI::M;
+            
+            
+            // cache_sets[index].begin()->state = MESI::M; => comment because should update only when the transaction finished
             // Will wait for BusRdX to complete
         } else if (entry.state == MESI::I) {
             // Write to I state - cache miss
             monitor->hit_miss_cnt[core->get_id()].second++;
-            monitor->private_data_accesses++;  // Write miss goes to M (private)
+            monitor->private_data_accesses++;  // Write miss goes to M (private) /////////////////////////////////////////////
             n_waiting_io++;
             requests.push(Request(Cmd::BusRdX, address, this->core->get_id(), block_size));
             if (requests.size() == 1) {
@@ -587,7 +596,7 @@ void LRU_Cache::put(int address, int word) {
             }
             reorder(index, block_memory);
             cache_sets[index].begin()->words[offset] = word;
-            cache_sets[index].begin()->state = MESI::M;
+            // cache_sets[index].begin()->state = MESI::M; => comment because should update only when the transaction finished
             // Will wait for BusRdX to complete
         }
     } else {
@@ -609,7 +618,7 @@ void LRU_Cache::put(int address, int word) {
         // Create entry with initial words and M state
         auto words = std::vector<int>(block_size / word_size, 0);
         words[offset] = word;
-        cache_sets[index].insert(cache_sets[index].begin(), Entry(block_memory * block_size, words, MESI::M));
+        cache_sets[index].insert(cache_sets[index].begin(), Entry(block_memory * block_size, words, MESI::I)); // change from  MESI::M ->  MESI::I 
         entry_location[block_memory] = cache_sets[index].begin();
         // Will wait for BusRdX to complete
     }
@@ -661,6 +670,7 @@ void LRU_Cache::update_entry_state(int address, MESI state) {
 
 void Bus::tick() {
     if (active == std::nullopt || (*active).remaining_cycles == 1) {
+        // handle the finish-executed bus transaction 
         if (active != std::nullopt) {
             (*monitor).bus_data_traffic += (*active).bytes_on_bus;
 
@@ -699,9 +709,18 @@ void Bus::tick() {
             auto cmd = (*active).cmd;
             if (cmd == Cmd::BusRd) {
                 // All bus transactions count as 2x block size (request + data)
-                (*active).bytes_on_bus = 2 * block_size;
-                if ((*active).supplied_by_cache) {
-                    // Supplied by another cache - goes to S state
+                
+                if ((*active).supplied_by_cache == 2) { // Supplied by another cache M - goes to S state
+                    (*active).bytes_on_bus = 2 * block_size + block_size;
+                    (*active).remaining_cycles = 2 * block_size / word_size + 100; // in here we need to flush also 
+                    for (auto& core: cores) {
+                        if (core->get_id() == (*active).src_core) {
+                            core->get_cache()->update_entry_state((*active).address, MESI::S);
+                            break;
+                        }
+                    }
+                } else if ((*active).supplied_by_cache == 1) { // Supplied by another cache S - goes to S state
+                    (*active).bytes_on_bus = 2 * block_size;
                     (*active).remaining_cycles = 2 * block_size / word_size;
                     for (auto& core: cores) {
                         if (core->get_id() == (*active).src_core) {
@@ -709,8 +728,10 @@ void Bus::tick() {
                             break;
                         }
                     }
-                } else {
+                }
+                else {
                     // Not supplied by cache - goes to E state
+                    (*active).bytes_on_bus = block_size;
                     (*active).remaining_cycles = 100;
                     for (auto& core: cores) {
                         if (core->get_id() == (*active).src_core) {
@@ -721,15 +742,24 @@ void Bus::tick() {
                 }
             } else if (cmd == Cmd::BusRdX) {
                 // All BusRdX count as invalidations and 2x block size traffic
-                (*active).bytes_on_bus = 2 * block_size;
+                
                 if ((*active).supplied_by_cache) {
+                    (*active).bytes_on_bus = 2 * block_size;
                     (*active).remaining_cycles = 2 * block_size / word_size;
                 } else {
+                    (*active).bytes_on_bus = block_size;
                     (*active).remaining_cycles = 100;
+                }
+
+                for (auto& core: cores) {
+                    if (core->get_id() == (*active).src_core) {
+                        core->get_cache()->update_entry_state((*active).address, MESI::M);
+                        break;
+                    }
                 }
             } else if (cmd == Cmd::FlushWB) {
                 (*active).remaining_cycles = 100;
-                (*active).bytes_on_bus = 2 * block_size;  // Writeback also 2x
+                (*active).bytes_on_bus = block_size;  // Writeback also 2x
             }
         }
     } else {
