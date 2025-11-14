@@ -593,7 +593,7 @@ void LRU_Cache::put(int address, int word) {
         } else if (entry.state == Dragon::Sc) {
             // Write to Sc state - need to send BusUpd (update others)
             monitor->shared_data_accesses++;
-            monitor->hit_miss_cnt[core->get_id()].second++;  // Counted as miss (needs bus transaction)
+            monitor->hit_miss_cnt[core->get_id()].first++;  // Counted as hit 
             n_waiting_io++;
             requests.push(Request(Cmd::BusUpd, address, this->core->get_id(), word_size, false, word));
             if (requests.size() == 1) {
@@ -608,7 +608,7 @@ void LRU_Cache::put(int address, int word) {
             // entry.state == Dragon::Sm
             // Write to Sm state - send BusUpd to update sharers
             monitor->shared_data_accesses++;
-            monitor->hit_miss_cnt[core->get_id()].second++;  // Counted as miss (needs bus transaction)
+            monitor->hit_miss_cnt[core->get_id()].first++;  // Counted as hit
             n_waiting_io++;
             requests.push(Request(Cmd::BusUpd, address, this->core->get_id(), word_size, false, word));
             if (requests.size() == 1) {
