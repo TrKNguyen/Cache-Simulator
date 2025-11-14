@@ -678,6 +678,8 @@ void LRU_Cache::notify_finish_io() {
                     return;
                 }
                 // If Sc, we need to send BusUpd to become Sm
+                // Increment n_waiting_io because BusUpd will trigger another notify_finish_io()
+                n_waiting_io++;
             }
         }
 
