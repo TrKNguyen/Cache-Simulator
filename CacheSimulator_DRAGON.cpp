@@ -457,29 +457,28 @@ bool LRU_Cache::snoop(Cmd cmd, int address, std::optional<BusTxn>& active) {
     int block_memory = address / block_size;
     int tag = block_memory / number_sets;
     if (!entry_location.count(block_memory)) {
-        return false;  // Don't have this block
+        return false;  
     }
     Entry& entry = *entry_location[block_memory];
 
     if (cmd == Cmd::BusRd) {
-        // Dragon BusRd snooping
         if (entry.state == Dragon::E) {
-            // E → Sc: supply data, become shared clean
+            // E-> Sc: supply data, become shared clean
             (*active).supplier_core = core->get_id();
             (*active).supplied_by_cache = 1;  // Clean supply
             entry.state = Dragon::Sc;
             return true;  // We have the block (assert shared signal)
         } else if (entry.state == Dragon::Sc) {
-            // Sc → stay Sc: assert shared, don't supply (not owner)
+            // Sc -> stay Sc: assert shared, don't supply (not owner)
             return true;  // We have the block (assert shared signal)
         } else if (entry.state == Dragon::Sm) {
-            // Sm → stay Sm: Flush (supply data), remain owner
+            // Sm -> stay Sm: Flush (supply data), remain owner
             (*active).supplier_core = core->get_id();
             (*active).supplied_by_cache = 2;  // Dirty supply
             // Stay in Sm (still owner)
             return true;  // We have the block (assert shared signal)
         } else if (entry.state == Dragon::M) {
-            // M → Sm: Flush (supply data), become shared owner
+            // M -> Sm: Flush (supply data), become shared owner
             (*active).supplier_core = core->get_id();
             (*active).supplied_by_cache = 2;  // Dirty supply
             entry.state = Dragon::Sm;
@@ -490,23 +489,22 @@ bool LRU_Cache::snoop(Cmd cmd, int address, std::optional<BusTxn>& active) {
         int offset = (address % block_size) / word_size;
 
         if (entry.state == Dragon::Sc) {
-            // Sc → stay Sc: update word
+            // Sc -> stay Sc: update word
             entry.words[offset] = (*active).word_value;
             return true;  // We have the block and updated it
         } else if (entry.state == Dragon::Sm) {
-            // Sm → Sc: update word, lose ownership
+            // Sm -> Sc: update word, lose ownership
             entry.words[offset] = (*active).word_value;
             entry.state = Dragon::Sc;
             return true;  // We have the block and updated it
         } else if (entry.state == Dragon::E) {
-            // E → Sc: update word (rare case)
+            // E -> Sc: update word (rare case)
             entry.words[offset] = (*active).word_value;
             entry.state = Dragon::Sc;
             return true;  // We have the block and updated it
         }
-        // If in M state, shouldn't receive BusUpd (we're private)
     } else if (cmd == Cmd::FlushWB) {
-        // No state change on writeback
+        // Do nothing 
     }
 
     return false;
@@ -519,41 +517,41 @@ std::pair<int, bool> LRU_Cache::get(int address) {
     int offset = (address % block_size) / word_size;
 
     if (entry_location.count(block_memory)) {
-        // Dragon: Block present in cache - MUST be in valid state (E, Sc, Sm, or M)
+        // Dragon: Block present in cache => must be in valid state (E, Sc, Sm, or M)
         Entry& entry = *entry_location[block_memory];
 
         if (entry.state == Dragon::M || entry.state == Dragon::E) {
-            // Cache hit in M or E state - private data access
+            // Cache hit in M or E state => private data access
             monitor->private_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
             reorder(index, block_memory);
             auto p = std::make_pair(cache_sets[index].begin()->words[offset], true);
-            // Cache hit takes 1 cycle - schedule completion
+            // Cache hit takes 1 cycle => schedule completion
             pending_hit_completion = true;
             hit_complete_at_cycle = *global_cycle + 1;
             return p;
         } else {
             // entry.state == Dragon::Sc || entry.state == Dragon::Sm
-            // Cache hit in Sc or Sm state - shared data access
+            // Cache hit in Sc or Sm state => shared data access
             monitor->shared_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
             reorder(index, block_memory);
             auto p = std::make_pair(cache_sets[index].begin()->words[offset], true);
-            // Cache hit takes 1 cycle - schedule completion
+            // Cache hit takes 1 cycle => schedule completion
             pending_hit_completion = true;
             hit_complete_at_cycle = *global_cycle + 1;
             return p;
         }
     } else {
-        // Cache miss - block not present in cache
-        // Dragon: No Invalid state - block simply doesn't exist yet
+        // Cache miss => block not present in cache
+        // Dragon: No Invalid state => block simply doesn't exist yet
         monitor->hit_miss_cnt[core->get_id()].second++;
         auto words = load_words_from_ram(address);
         // Create entry optimistically in E state, will be updated to Sc if sharers detected
         cache_sets[index].insert(cache_sets[index].begin(), Entry(block_memory * block_size, words, Dragon::E));
         entry_location[block_memory] = cache_sets[index].begin();
 
-        // For misses, return dummy value - will wait for bus transaction
+        // For misses, return dummy value => will wait for bus transaction
         auto p = std::make_pair(0, true);
         return p;
     }
@@ -566,11 +564,11 @@ void LRU_Cache::put(int address, int word) {
     int offset = (address % block_size) / word_size;
 
     if (entry_location.count(block_memory)) {
-        // Dragon: Block present in cache - MUST be in valid state (E, Sc, Sm, or M)
+        // Dragon: Block present in cache => must be in valid state (E, Sc, Sm, or M)
         Entry& entry = *entry_location[block_memory];
 
         if (entry.state == Dragon::M) {
-            // Cache hit in M state - already have exclusive ownership
+            // Cache hit in M state => already have exclusive ownership
             monitor->private_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
             reorder(index, block_memory);
@@ -580,7 +578,7 @@ void LRU_Cache::put(int address, int word) {
             hit_complete_at_cycle = *global_cycle + 1;
             return;
         } else if (entry.state == Dragon::E) {
-            // Cache hit in E state - have exclusive ownership
+            // Cache hit in E state => have exclusive ownership
             monitor->private_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
             reorder(index, block_memory);
@@ -591,7 +589,7 @@ void LRU_Cache::put(int address, int word) {
             hit_complete_at_cycle = *global_cycle + 1;
             return;
         } else if (entry.state == Dragon::Sc) {
-            // Write to Sc state - need to send BusUpd (update others)
+            // Write to Sc state => need to send BusUpd (update others)
             monitor->shared_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;  // Counted as hit 
             n_waiting_io++;
@@ -606,7 +604,7 @@ void LRU_Cache::put(int address, int word) {
             // State will be updated by bus to Sm or M based on S/S'
         } else {
             // entry.state == Dragon::Sm
-            // Write to Sm state - send BusUpd to update sharers
+            // Write to Sm state => send BusUpd to update sharers
             monitor->shared_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;  // Counted as hit
             n_waiting_io++;
@@ -621,9 +619,6 @@ void LRU_Cache::put(int address, int word) {
             // Stay in Sm (already owner)
         }
     } else {
-        // Cache miss - block not present in cache
-        // Dragon: No Invalid state - block simply doesn't exist yet
-        // Check if eviction needed
         if (cache_sets[index].size() >= (size_t)associativity) {
             evict(index);
         }
@@ -631,15 +626,11 @@ void LRU_Cache::put(int address, int word) {
         monitor->hit_miss_cnt[core->get_id()].second++;
         n_waiting_io++;
 
-        // Create entry with initial words, optimistically in E state
         auto words = std::vector<int>(block_size / word_size, 0);
         words[offset] = word;
         cache_sets[index].insert(cache_sets[index].begin(), Entry(block_memory * block_size, words, Dragon::E));
         entry_location[block_memory] = cache_sets[index].begin();
 
-        // For write miss in Dragon:
-        // 1. First get the block with BusRd (marked as write)
-        // 2. Then conditionally BusUpd if sharers detected (checked in notify_finish_io)
         requests.push(Request(Cmd::BusRd, address, this->core->get_id(), block_size, true, word));
         requests.push(Request(Cmd::BusUpd, address, this->core->get_id(), word_size, true, word));
         if (requests.size() == 2) {
@@ -656,17 +647,13 @@ void LRU_Cache::notify_finish_io() {
     if (requests.size()) {
         auto& request = requests.front();
 
-        // For Dragon: if this is a BusUpd following a write BusRd, check if we need to send it
         if (request.cmd == Cmd::BusUpd && request.is_write) {
-            // Check current state after BusRd completed
             int block_memory = request.address / block_size;
             if (entry_location.count(block_memory)) {
                 Entry& entry = *entry_location[block_memory];
                 if (entry.state == Dragon::E) {
-                    // No sharers - transition E→M without BusUpd
                     entry.state = Dragon::M;
                     requests.pop();
-                    // Don't send BusUpd to bus, skip to next request
                     if (requests.size()) {
                         auto& next_request = requests.front();
                         bus->request(next_request.cmd, next_request.address, next_request.id, next_request.block_size, next_request.word_value);
@@ -677,8 +664,6 @@ void LRU_Cache::notify_finish_io() {
                     }
                     return;
                 }
-                // If Sc, we need to send BusUpd to become Sm
-                // Increment n_waiting_io because BusUpd will trigger another notify_finish_io()
                 n_waiting_io++;
             }
         }
@@ -702,19 +687,12 @@ void LRU_Cache::tick() {
 void LRU_Cache::update_entry_state(int address, Dragon state) {
     int block_memory = address / block_size;
     if (entry_location.find(block_memory) == entry_location.end()) {
-        return;  // Entry doesn't exist, can't update
+        return;  
     }
     Entry& entry = *entry_location[block_memory];
-
-    // Dragon: No Invalid state
-    // Entries created optimistically in E, then potentially downgraded
-    // Track private vs shared transitions for metrics
-    // (Note: initial accesses already tracked in get()/put(), this handles bus updates)
-
     entry.state = state;
 }
 
-// Bus implementations
 
 void Bus::tick() {
     if (active == std::nullopt || (*active).remaining_cycles == 1) {
@@ -760,7 +738,7 @@ void Bus::tick() {
 
                 if ((*active).supplied_by_cache == 2) {
                     // Supplied by another cache Sm/M (dirty)
-                    (*active).bytes_on_bus = 2 * block_size;  // Cache-to-cache transfer
+                    (*active).bytes_on_bus = 2 * block_size;  // Cache-to-cache data transfering 
                     (*active).remaining_cycles = 2 * block_size / word_size;
 
                     // Destination goes to Sc (shared clean, not owner)
@@ -772,7 +750,7 @@ void Bus::tick() {
                     }
                 } else if ((*active).supplied_by_cache == 1) {
                     // Supplied by another cache E (clean)
-                    (*active).bytes_on_bus = 2 * block_size;  // Cache-to-cache transfer
+                    (*active).bytes_on_bus = 2 * block_size;  // Cache-to-cache data transfering 
                     (*active).remaining_cycles = 2 * block_size / word_size;
 
                     // Destination goes to Sc (shared clean)
@@ -783,7 +761,7 @@ void Bus::tick() {
                         }
                     }
                 } else {
-                    // Not supplied by cache - memory supplies
+                    // Not supplied by cache => memory supplies
                     (*active).bytes_on_bus = block_size;
                     (*active).remaining_cycles = 100;
 
@@ -799,18 +777,18 @@ void Bus::tick() {
                 // Dragon BusUpd timing and state updates
                 // BusUpd sends ONE WORD only
                 (*active).bytes_on_bus = word_size;  // 4 bytes
-                (*active).remaining_cycles = 2;  // 2 cycles per problem statement
+                (*active).remaining_cycles = 2;  
 
-                // Update destination state based on S/S' (shared signal)
-                // If num_sharers > 0: others still have it (S) → Sm
-                // If num_sharers == 0: we're alone (S') → M
+                // Update destination state based on S or S'
+                // If num_sharers > 0: others still have it (S) -> Sm
+                // If num_sharers == 0: we're alone (S') -> M
                 for (auto& core: cores) {
                     if (core->get_id() == (*active).src_core) {
                         if (num_sharers > 0) {
-                            // S: others have it, we become Sm (shared owner)
+                            // S => others have it, we become Sm (shared owner)
                             core->get_cache()->update_entry_state((*active).address, Dragon::Sm);
                         } else {
-                            // S': no others, we become M (private)
+                            // S' => no others, we become M (private)
                             core->get_cache()->update_entry_state((*active).address, Dragon::M);
                         }
                         break;
@@ -832,7 +810,7 @@ void Bus::request(Cmd cmd, int address, int src_core, int block_size, int word_v
         pending.push(BusTxn(cmd, address, src_core, -1, false, -1, -1));
     } else if (cmd == Cmd::BusUpd) {
         BusTxn txn(cmd, address, src_core, -1, false, -1, -1);
-        txn.word_value = word_value;  // Store the word value for BusUpd
+        txn.word_value = word_value;  
         pending.push(txn);
     } else if (cmd == Cmd::FlushWB) {
         pending.push(BusTxn(cmd, address, src_core, -1, false, -1, -1));

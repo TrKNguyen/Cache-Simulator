@@ -15,8 +15,8 @@ std::string protocol;
 std::string input_file;
 int cache_size;
 int associativity;
-int block_size = 32; // 32 bytes by default
-const int word_size = 4; // 4 bytes;
+int block_size = 32; 
+const int word_size = 4; 
 const int base = 19102004;
 const int ram_access = 100;
 const int cache_access = 1;
@@ -218,7 +218,6 @@ private:
     int n_waiting_io;
     std::queue<Request> requests;
 
-    // For cache hits that take 1 cycle
     int hit_complete_at_cycle;
     bool pending_hit_completion;
 public:
@@ -245,7 +244,6 @@ public:
         entry_location.erase(block_memory);
         cache_sets[index].erase(--cache_sets[index].end());
 
-        // In MOESI: writeback needed for M or O states (both are dirty)
         if (state == MOESI::M || state == MOESI::O) {
             store_words_to_ram(address);
         }
@@ -262,11 +260,11 @@ public:
     }
     void store_words_to_ram(int address);
     std::vector<int> load_words_from_ram(int address);
-    bool snoop(Cmd cmd, int address, std::optional<BusTxn>& active);  // Returns true if invalidation occurred
+    bool snoop(Cmd cmd, int address, std::optional<BusTxn>& active); 
     std::pair<int, bool> get(int address);
     void put(int address, int word);
     void notify_finish_io();
-    void tick();  // Process cache hit delays
+    void tick();  
 
     void update_entry_state(int address, MOESI state);
 };
@@ -286,7 +284,7 @@ private:
     int cnt = 0;
     int id;
 public:
-    int pending_compute_cycles = 0;  // Compute cycles since last load/store
+    int pending_compute_cycles = 0;  
     Core(int id, std::string input_file, int* global_cycle, Monitor* monitor, Bus* bus): id(id), global_cycle(global_cycle), monitor(monitor), bus(bus)  {
         cache = new LRU_Cache(this, cache_size, associativity, block_size, global_cycle, monitor, bus);
         std::string filename = "./" + input_file + "_four/" + input_file + "_" + std::to_string(id) + ".data";
@@ -332,7 +330,6 @@ public:
 
         int address = hex_to_dec(address_string);
         if (type == 0) {
-            // Load: count pending compute cycles (they were BETWEEN operations)
             monitor->compute_cyc[id] += pending_compute_cycles;
             pending_compute_cycles = 0;
 
@@ -340,7 +337,6 @@ public:
             auto result = cache->get(address);
             monitor->num_loads[id]++;
         } else if (type == 1) {
-            // Store: count pending compute cycles (they were BETWEEN operations)
             monitor->compute_cyc[id] += pending_compute_cycles;
             pending_compute_cycles = 0;
 
@@ -348,7 +344,6 @@ public:
             cache->put(address, base);
             monitor->num_stores[id]++;
         } else {
-            // Compute: accumulate but don't count yet (might be after last load/store)
             int cal_cycles = address;
             waiting_cal = *global_cycle + cal_cycles;
             pending_compute_cycles += cal_cycles;
@@ -385,7 +380,6 @@ public:
     }
     void run() {
         while (1) {
-            // Tick caches to complete any pending hits from previous cycle
             for (int i = 0; i < n_cores; i++) {
                 cores[i]->get_cache()->tick();
             }
@@ -420,7 +414,6 @@ public:
     }
 };
 
-// Implementation of LRU_Cache methods
 
 void LRU_Cache::store_words_to_ram(int address) {
     n_waiting_io++;
@@ -480,7 +473,7 @@ bool LRU_Cache::snoop(Cmd cmd, int address, std::optional<BusTxn>& active) {
             entry.state = MOESI::S;
             return false;  // Not invalidated, just downgraded
         } else if (entry.state == MOESI::S) {
-            // S → S: Don't supply (O or memory will)
+            // S → S: Don't supply cause (O or memory will)
             // Stay in S
             return false;  // Not invalidated
         }
@@ -536,27 +529,22 @@ std::pair<int, bool> LRU_Cache::get(int address) {
         Entry& entry = *entry_location[block_memory];
 
         if (entry.state == MOESI::M || entry.state == MOESI::E) {
-            // Cache hit in M or E state - private data access
             monitor->private_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
             reorder(index, block_memory);
             auto p = std::make_pair(cache_sets[index].begin()->words[offset], true);
-            // Cache hit takes 1 cycle - schedule completion
             pending_hit_completion = true;
             hit_complete_at_cycle = *global_cycle + 1;
             return p;
         } else if (entry.state == MOESI::S || entry.state == MOESI::O) {
-            // Cache hit in S or O state - shared data access
             monitor->shared_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
             reorder(index, block_memory);
             auto p = std::make_pair(cache_sets[index].begin()->words[offset], true);
-            // Cache hit takes 1 cycle - schedule completion
             pending_hit_completion = true;
             hit_complete_at_cycle = *global_cycle + 1;
             return p;
         } else if (entry.state == MOESI::I) {
-            // Entry exists but is invalid - cache miss
             monitor->hit_miss_cnt[core->get_id()].second++;
             n_waiting_io++;
             requests.push(Request(Cmd::BusRd, address, this->core->get_id(), block_size));
@@ -565,19 +553,15 @@ std::pair<int, bool> LRU_Cache::get(int address) {
                 bus->request(request.cmd, request.address, request.id, request.block_size);
                 requests.pop();
             }
-            // State will be set by bus (E or S) when transaction completes
             reorder(index, block_memory);
         }
     } else {
-        // Cache miss - entry doesn't exist
         monitor->hit_miss_cnt[core->get_id()].second++;
         auto words = load_words_from_ram(address);
-        // Initial state is I, will be updated by bus to E or S
         cache_sets[index].insert(cache_sets[index].begin(), Entry(block_memory * block_size, words, MOESI::I));
         entry_location[block_memory] = cache_sets[index].begin();
     }
 
-    // For misses, return dummy value - will wait for bus transaction
     auto p = std::make_pair(0, true);
     return p;
 }
@@ -592,30 +576,25 @@ void LRU_Cache::put(int address, int word) {
         Entry& entry = *entry_location[block_memory];
 
         if (entry.state == MOESI::M) {
-            // Cache hit in M state - already have exclusive ownership
             monitor->private_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
             reorder(index, block_memory);
             cache_sets[index].begin()->words[offset] = word;
-            // Stay in M state, takes 1 cycle
             pending_hit_completion = true;
             hit_complete_at_cycle = *global_cycle + 1;
             return;
         } else if (entry.state == MOESI::E) {
-            // Cache hit in E state - silent upgrade to M
             monitor->private_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
             reorder(index, block_memory);
             cache_sets[index].begin()->words[offset] = word;
             cache_sets[index].begin()->state = MOESI::M;
-            // Takes 1 cycle
             pending_hit_completion = true;
             hit_complete_at_cycle = *global_cycle + 1;
             return;
         } else if (entry.state == MOESI::S) {
-            // Write to S state - need BusUpgr to invalidate others
             monitor->shared_data_accesses++;
-            monitor->hit_miss_cnt[core->get_id()].first++;  // This is a HIT (block present)
+            monitor->hit_miss_cnt[core->get_id()].first++;
             n_waiting_io++;
             requests.push(Request(Cmd::BusUpgr, address, this->core->get_id(), block_size));
             if (requests.size() == 1) {
@@ -625,11 +604,9 @@ void LRU_Cache::put(int address, int word) {
             }
             reorder(index, block_memory);
             cache_sets[index].begin()->words[offset] = word;
-            // Will transition to M when BusUpgr completes
         } else if (entry.state == MOESI::O) {
-            // Write to O state - need BusUpgr to invalidate other sharers
             monitor->shared_data_accesses++;
-            monitor->hit_miss_cnt[core->get_id()].first++;  // This is a HIT (block present)
+            monitor->hit_miss_cnt[core->get_id()].first++;  
             n_waiting_io++;
             requests.push(Request(Cmd::BusUpgr, address, this->core->get_id(), block_size));
             if (requests.size() == 1) {
@@ -639,11 +616,9 @@ void LRU_Cache::put(int address, int word) {
             }
             reorder(index, block_memory);
             cache_sets[index].begin()->words[offset] = word;
-            // Will transition to M when BusUpgr completes
         } else if (entry.state == MOESI::I) {
-            // Write to I state - cache miss, need BusRdX
             monitor->hit_miss_cnt[core->get_id()].second++;
-            monitor->private_data_accesses++;  // Write miss goes to M (private)
+            monitor->private_data_accesses++;  
             n_waiting_io++;
             requests.push(Request(Cmd::BusRdX, address, this->core->get_id(), block_size));
             if (requests.size() == 1) {
@@ -653,18 +628,14 @@ void LRU_Cache::put(int address, int word) {
             }
             reorder(index, block_memory);
             cache_sets[index].begin()->words[offset] = word;
-            // Will transition to M when BusRdX completes
         }
     } else {
-        // Cache miss - entry doesn't exist
-        // Check if eviction needed
         if (cache_sets[index].size() >= (size_t)associativity) {
             evict(index);
         }
 
-        // For write miss, use BusRdX to get exclusive ownership
         monitor->hit_miss_cnt[core->get_id()].second++;
-        monitor->private_data_accesses++;  // Write miss goes to M (private)
+        monitor->private_data_accesses++;  
         n_waiting_io++;
         requests.push(Request(Cmd::BusRdX, address, this->core->get_id(), block_size));
         if (requests.size() == 1) {
@@ -673,12 +644,10 @@ void LRU_Cache::put(int address, int word) {
             requests.pop();
         }
 
-        // Create entry with initial words and I state
         auto words = std::vector<int>(block_size / word_size, 0);
         words[offset] = word;
         cache_sets[index].insert(cache_sets[index].begin(), Entry(block_memory * block_size, words, MOESI::I));
         entry_location[block_memory] = cache_sets[index].begin();
-        // Will transition to M when BusRdX completes
     }
 }
 
@@ -696,7 +665,6 @@ void LRU_Cache::notify_finish_io() {
 }
 
 void LRU_Cache::tick() {
-    // Check if cache hit delay has elapsed
     if (pending_hit_completion && *global_cycle >= hit_complete_at_cycle) {
         pending_hit_completion = false;
         core->finish_io();
@@ -706,14 +674,11 @@ void LRU_Cache::tick() {
 void LRU_Cache::update_entry_state(int address, MOESI state) {
     int block_memory = address / block_size;
     if (entry_location.find(block_memory) == entry_location.end()) {
-        return;  // Entry doesn't exist, can't update
+        return;  
     }
     Entry& entry = *entry_location[block_memory];
 
-    // Track private vs shared for misses that complete here
-    // (hits were already tracked in get()/put())
     if (entry.state == MOESI::I) {
-        // Was invalid (miss), now being set to E, S, or M
         if (state == MOESI::E || state == MOESI::M) {
             monitor->private_data_accesses++;
         } else if (state == MOESI::S || state == MOESI::O) {
@@ -724,15 +689,11 @@ void LRU_Cache::update_entry_state(int address, MOESI state) {
     entry.state = state;
 }
 
-// Bus implementations
-
 void Bus::tick() {
     if (active == std::nullopt || (*active).remaining_cycles == 1) {
-        // handle the finish-executed bus transaction
         if (active != std::nullopt) {
             (*monitor).bus_data_traffic += (*active).bytes_on_bus;
 
-            // Count BusRdX and BusUpgr as invalidations (write-invalidate protocol)
             if ((*active).cmd == Cmd::BusRdX || (*active).cmd == Cmd::BusUpgr) {
                 (*monitor).bus_invalidate_update_cnt++;
             }
@@ -751,7 +712,6 @@ void Bus::tick() {
             pending.pop();
             auto& cores = this->operating_system->get_cores();
 
-            // Count the number of caches invalidated
             int num_invalidations = 0;
             for (auto& core: cores) {
                 if (core->get_id() == (*active).src_core) {
@@ -766,12 +726,8 @@ void Bus::tick() {
 
             auto cmd = (*active).cmd;
             if (cmd == Cmd::BusRd) {
-                // MOESI BusRd timing and state updates
 
                 if ((*active).supplied_by_cache == 2) {
-                    // Supplied by another cache M/O (dirty)
-                    // M→O or O→O in supplier
-                    // Requester gets S
                     (*active).bytes_on_bus = 2 * block_size + block_size;  // Cache-to-cache + flush to memory
                     (*active).remaining_cycles = 2 * block_size / word_size + 100;
 
@@ -782,9 +738,6 @@ void Bus::tick() {
                         }
                     }
                 } else if ((*active).supplied_by_cache == 1) {
-                    // Supplied by another cache E (clean)
-                    // E→S in supplier
-                    // Requester gets S
                     (*active).bytes_on_bus = 2 * block_size;  // Cache-to-cache transfer
                     (*active).remaining_cycles = 2 * block_size / word_size;
 
@@ -795,9 +748,6 @@ void Bus::tick() {
                         }
                     }
                 } else {
-                    // Not supplied by cache - memory supplies
-                    // No other cache has it
-                    // Requester gets E
                     (*active).bytes_on_bus = block_size;
                     (*active).remaining_cycles = 100;
 
@@ -809,20 +759,13 @@ void Bus::tick() {
                     }
                 }
             } else if (cmd == Cmd::BusRdX) {
-                // MOESI BusRdX timing and state updates
-                // All other caches invalidate (M/O/E/S → I)
-                // Requester gets M
-
                 if ((*active).supplied_by_cache == 2) {
-                    // Supplied by M/O (dirty)
                     (*active).bytes_on_bus = 2 * block_size;  // Cache-to-cache transfer
                     (*active).remaining_cycles = 2 * block_size / word_size;
                 } else if ((*active).supplied_by_cache == 1) {
-                    // Supplied by E (clean) - rare for BusRdX
                     (*active).bytes_on_bus = 2 * block_size;
                     (*active).remaining_cycles = 2 * block_size / word_size;
                 } else {
-                    // Not supplied by cache - memory supplies
                     (*active).bytes_on_bus = block_size;
                     (*active).remaining_cycles = 100;
                 }
@@ -834,10 +777,6 @@ void Bus::tick() {
                     }
                 }
             } else if (cmd == Cmd::BusUpgr) {
-                // MOESI BusUpgr timing and state updates
-                // All other S/O caches invalidate
-                // Requester S/O → M
-                // No data transfer, just invalidation signals
                 (*active).remaining_cycles = 1;
                 (*active).bytes_on_bus = 0;
 
@@ -848,7 +787,6 @@ void Bus::tick() {
                     }
                 }
             } else if (cmd == Cmd::FlushWB) {
-                // Writeback to memory (from M or O eviction)
                 (*active).remaining_cycles = 100;
                 (*active).bytes_on_bus = block_size;
             }

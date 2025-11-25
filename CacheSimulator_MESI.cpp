@@ -488,27 +488,27 @@ std::pair<int, bool> LRU_Cache::get(int address) {
         Entry& entry = *entry_location[block_memory];
 
         if (entry.state == MESI::M || entry.state == MESI::E) {
-            // Cache hit in M or E state - private data access
+            // Cache hit in M or E state => private data access
             monitor->private_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
             reorder(index, block_memory);
             auto p = std::make_pair(cache_sets[index].begin()->words[offset], true);
-            // Cache hit takes 1 cycle - schedule completion
+            // Cache hit takes 1 cycle => schedule completion
             pending_hit_completion = true;
             hit_complete_at_cycle = *global_cycle + 1;
             return p;
         } else if (entry.state == MESI::S) {
-            // Cache hit in S state - shared data access
+            // Cache hit in S state => shared data access
             monitor->shared_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
             reorder(index, block_memory);
             auto p = std::make_pair(cache_sets[index].begin()->words[offset], true);
-            // Cache hit takes 1 cycle - schedule completion
+            // Cache hit takes 1 cycle => schedule completion
             pending_hit_completion = true;
             hit_complete_at_cycle = *global_cycle + 1;
             return p;
         } else if (entry.state == MESI::I) {
-            // Entry exists but is invalid - cache miss
+            // Entry exists but is invalid => cache miss
             monitor->hit_miss_cnt[core->get_id()].second++;
             n_waiting_io++;
             requests.push(Request(Cmd::BusRd, address, this->core->get_id(), block_size));
@@ -529,7 +529,7 @@ std::pair<int, bool> LRU_Cache::get(int address) {
         entry_location[block_memory] = cache_sets[index].begin();
     }
 
-    // For misses, return dummy value - will wait for bus transaction
+    // For misses, return dummy value => will wait for bus transaction
     auto p = std::make_pair(0, true);
     return p;
 }
@@ -544,7 +544,7 @@ void LRU_Cache::put(int address, int word) {
         Entry& entry = *entry_location[block_memory];
 
         if (entry.state == MESI::M) {
-            // Cache hit in M state - already have exclusive ownership
+            // Cache hit in M state => already have exclusive ownership
             monitor->private_data_accesses++;
             monitor->hit_miss_cnt[core->get_id()].first++;
             reorder(index, block_memory);
@@ -567,9 +567,9 @@ void LRU_Cache::put(int address, int word) {
         } else if (entry.state == MESI::S) {
             // Write to S state - need to invalidate others (upgrade HIT with coherence)
             monitor->shared_data_accesses++;
-            monitor->hit_miss_cnt[core->get_id()].first++;  // FIX #5: Changed .second to .first (HIT not MISS)
+            monitor->hit_miss_cnt[core->get_id()].first++;  
             n_waiting_io++;
-            requests.push(Request(Cmd::BusUpgr, address, this->core->get_id(), block_size));  // FIX #1: Changed BusRdX to BusUpgr
+            requests.push(Request(Cmd::BusUpgr, address, this->core->get_id(), block_size));  
             if (requests.size() == 1) {
                 auto& request = requests.front();
                 bus->request(request.cmd, request.address, request.id, request.block_size);
@@ -598,7 +598,7 @@ void LRU_Cache::put(int address, int word) {
             // Will wait for BusRdX to complete
         }
     } else {
-        // Cache miss - entry doesn't exist
+        // Cache miss => entry doesn't exist
         // Check if eviction needed
         if (cache_sets[index].size() >= (size_t)associativity) {
             evict(index);
@@ -650,8 +650,6 @@ void LRU_Cache::update_entry_state(int address, MESI state) {
     }
     Entry& entry = *entry_location[block_memory];
 
-    // Track private vs shared for misses that complete here
-    // (hits were already tracked in get()/put())
     if (entry.state == MESI::I) {
         // Was invalid (miss), now being set to E or S
         if (state == MESI::E) {
@@ -664,7 +662,6 @@ void LRU_Cache::update_entry_state(int address, MESI state) {
     entry.state = state;
 }
 
-// Bus implementations
 
 void Bus::tick() {
     if (active == std::nullopt || (*active).remaining_cycles == 1) {
@@ -706,9 +703,9 @@ void Bus::tick() {
 
             auto cmd = (*active).cmd;
             if (cmd == Cmd::BusRd) {
-                // All bus transactions count as 2x block size (request + data)
+               
 
-                if ((*active).supplied_by_cache == 2) { // Supplied by another cache M - goes to S state
+                if ((*active).supplied_by_cache == 2) { 
                     (*active).bytes_on_bus = 2 * block_size + block_size;
                     (*active).remaining_cycles = 2 * block_size / word_size + 100;  // need to store to the ram and data shaing also
                     for (auto& core: cores) {
@@ -717,7 +714,7 @@ void Bus::tick() {
                             break;
                         }
                     }
-                } else if ((*active).supplied_by_cache == 1) { // Supplied by another cache S - goes to S state
+                } else if ((*active).supplied_by_cache == 1) { 
                     (*active).bytes_on_bus = 2 * block_size;
                     (*active).remaining_cycles = 2 * block_size / word_size;
                     for (auto& core: cores) {
